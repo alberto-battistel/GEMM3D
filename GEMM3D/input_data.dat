@@ -1,0 +1,224 @@
+model1.node              # Node file name.
+model1.ele               # Node file name by element.
+model1.rste              # Edge file name by element.
+model1.rstb              # Name of edge file on Dirichlet boundary;
+model1.rsts              # Node file name per edge. That is, the file that defined the edges.
+model1.eblc              # File name with elements per inversion block.
+model1.eobs              # File name with elements per solution node.
+model1.obs               # File name with indexes and observation coordinates.
+0.d0          0.0d0      # Electric source current and loop radius or dipole length.
+2                        # Number of frequencies  
+1.0d-1                   # frequencies
+1.0d1
+1                        # Number of transmitters. This parameter and the following must appear even if the MT is being modeled
+0.d0   0.d0   0.0d0      # coordinates (x0, y0, z0 = h0) of the sources if DPs and HCL were chosen.
+1                        # Model 1D: NC = Number of layers + the half-space (if NC = 1, model 1D = half-space).
+1.d2                     # Resistivity of NC layers.
+1.d0                     # Relative permittivity of the NC layers.
+0.d0                     # thickness of the NC-1 layers. (If NC = 1 the thickness should be started with any value)
+1   0                    # number of heterogeneity of 3D model and Complex conductivity function 
+                         # (0, 1 for Dias, 2 for Colo-Cole and 3 for multiColo-Cole )
+
+
+ OBS: 1D Validation model of the direct problem: 1st validation result - Magnetotelluric.
+
+
+
+
+			                 	AIR
+
+----------------------------------------------------------------------------------------------------
+
+
+ LAYER (1)   		SEDIMENT ( HALF-SPACE ) RHO = 100.0 Ohmm.
+
+
+
+
+
+
+!===========================================================================================================================
+!888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+!===========================================================================================================================
+
+model1.node	         # Node file name.
+model1.ele		 # Node file name by element.
+model1.rste		 # Edge file name by element.
+model1.rstb 	         # Name of edge file on Dirichlet boundary;
+model1.rsts		 # Node file name per edge. That is, the file that defined the edges.
+model1.eblc		 # File name with elements per inversion block.
+model1.eobs		 # File name with elements per solution node.
+model1.obs		 # File name with indexes and observation coordinates.
+1.0		1.0d0    # Electric source current and loop radius or dipole length.
+1                        # Number of frequencies 
+5.d-1	                 # frequencies
+1                        # Number of transmitters. This parameter and the following must appear even if the MT is being modeled.
+0.d0    -1.d0   9.7d2    # coordinates (x0, y0, z0 = h0) of the sources if DPs and HCL were chosen.
+2   	                 # Model 1D: NC = Number of layers + the half-space (if NC = 1, model 1D = half-space).
+3.d-1                    # Resistivity of NC layers.
+1.d0
+1.d0                     # Relative permittivity of the NC layers.
+1.d0
+1.d3                     # thickness of the NC-1 layers. (If NC = 1 the thickness should be started with any value).
+800	0                # number of heterogeneity of 3D model and Complex conductivity function.
+                         # (0, 1 for Dias, 2 for Colo-Cole and 3 for multiColo-Cole ).
+
+
+ OBS: 1D model for direct problem validation: 2nd validation result - Horizontal dipole 1D responses.
+
+
+
+				AIR
+
+
+-----------------------------------------------------------------------
+
+   LAYER (1)		SEA ( RHO = 0.3 Ohmm )
+
+-----------------------------------------------------------------------
+
+   LAYER (2)       SEDIMENT ( HALF-SPACE ) RHO = 1.0 Ohmm
+		   
+	   
+
+
+	
+!===========================================================================================================================
+!888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+!===========================================================================================================================
+
+model1.node	        # Node file name.
+model1.ele		# Node file name by element.
+model1.rste		# Edge file name by element.
+model1.rstb 	        # Name of edge file on Dirichlet boundary;
+model1.rsts		# Node file name per edge. That is, the file that defined the edges.
+model1.eblc		# File name with elements per inversion block.
+model1.eobs		# File name with elements per solution node.
+model1.obs              # File name with indexes and observation coordinates.
+1.d0	3.4d2	        # Electric source current and loop radius or dipole length.
+4                       # Number of frequencies
+1.d0	                # frequencies
+1.d1
+1.d2
+1.d3
+1                       # Number of transmitters. This parameter and the following must appear even if the MT is being modeled.
+  -4.d3  -1.d0   0.0d0  # coordinates (x0, y0, z0 = h0) of the sources if DPs and HCL were chosen.
+1                       # Model 1D: NC = Number of layers + the half-space (if NC = 1, model 1D = half-space).
+2.d2                    # Resistivity of NC layers.
+1.d0                    # Relative permittivity of the NC layers.
+5.d3                    # thickness of the NC-1 layers. (If NC = 1 the thickness should be started with any value).
+3   0                   # number of heterogeneity of 3D model and Complex conductivity function.
+                        # (0, 1 for Dias, 2 for Colo-Cole and 3 for multiColo-Cole ).
+				 		
+
+ OBS: Validation model of the direct problem: 3rd validation result - horizontal circular loop (real resistivity).
+
+
+								
+                                  AIR
+-------------------------------------------------------------------------
+
+
+
+ LAYER (1)   		SEDIMENT ( HALF-SPACE ) RHO = 200 Ohmm.
+
+
+
+
+
+
+!===========================================================================================================================
+!888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+!===========================================================================================================================
+
+
+model1.node	         # Node file name.
+model1.ele		 # Node file name by element.
+model1.rste		 # Edge file name by element.
+model1.rstb 	         # Name of edge file on Dirichlet boundary;
+model1.rsts		 # Node file name per edge. That is, the file that defined the edges.
+model1.eblc		 # File name with elements per inversion block.
+model1.eobs		 # File name with elements per solution node.
+model1.obs		 # File name with indexes and observation coordinates.
+1.d0		1.d0     # Electric source current and loop radius or dipole length
+1	                 # Number of frequencies
+1.25d-1	                 # frequencies
+1                        # Number of transmitters. This parameter and the following must appear even if the MT is being modeled.
+-3.d3    -1.d0   9.7d2   # coordinates (x0, y0, z0 = h0) of the sources if DPs and HCL were chosen.
+2   	                 # Model 1D: NC = Number of layers + the half-space (if NC = 1, model 1D = half-space).
+3.d-1                    # Resistivity of NC layers.
+1.d0
+1.d0                     # Relative permittivity of the NC layers.
+1.d0
+1.d3                     # thickness of the NC-1 layers. (If NC = 1 the thickness should be started with any value).
+800	0                # number of heterogeneity of 3D model and Complex conductivity function.
+                         # (0, 1 for Dias, 2 for Colo-Cole and 3 for multiColo-Cole ).
+
+
+ OBS: model 1D for validation of the calculation of the sensitivity matrix: 4rd validation result - Magnetotelluric.
+
+
+
+				AIR
+
+
+-----------------------------------------------------------------------
+
+   LAYER (1)		SEA ( RHO = 0.3 Ohmm )
+
+-----------------------------------------------------------------------
+
+   LAYER (2)       SEDIMENT ( HALF-SPACE ) RHO = 1.0 Ohmm
+		   
+	   
+
+
+	
+!===========================================================================================================================
+!888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+!===========================================================================================================================
+
+                            ADDITIONAL EXAMPLE - MODEL WITH COMPLEX CONDUCTIVITY USING THE 
+                                                 COMPLEX FUNCTION OF COLE-COLE TYPE.
+
+!===========================================================================================================================
+
+
+model1.node	        # Node file name.
+model1.ele		# Node file name by element.
+model1.rste		# Edge file name by element.
+model1.rstb 	        # Name of edge file on Dirichlet boundary;
+model1.rsts		# Node file name per edge. That is, the file that defined the edges.
+model1.eblc		# File name with elements per inversion block.
+model1.eobs		# File name with elements per solution node.
+model1.obs              # File name with indexes and observation coordinates.
+1.d0		1.5d2   # Electric source current and loop radius or dipole length.
+2                       # Number of frequencies
+1.d0                    # frequencies
+1.d1                    
+1                       # Number of transmitters. This parameter and the following must appear even if the MT is being modeled.
+-2.0d3    -1.d0   0.0   # coordinates (x0, y0, z0 = h0) of the sources if DPs and HCL were chosen.
+1                       # Model 1D: NC = Number of layers + the half-space (if NC = 1, model 1D = half-space).
+2.d2                    # Resistivity of NC layers.
+1.d0    		# Relative permittivity of the NC layers.
+1.d3    		# thickness of the NC-1 layers. (If NC = 1 the thickness should be started with any value).
+15	2		# number of heterogeneity of 3D model and Complex conductivity function.
+                        # (0, 1 for Dias, 2 for Colo-Cole and 3 for multiColo-Cole ).
+
+ OBS: model 1D for validation of the direct problem: simulation of the 3D response of the horizontal circular loop (complex resistivitys).
+
+
+				AIR
+
+-----------------------------------------------------------------------
+
+   LAYER (1)		SEDMENT ( RHO = 200 Ohmm )
+
+		   
+	   
+
+
+	
+!===========================================================================================================================
+!888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+!===========================================================================================================================

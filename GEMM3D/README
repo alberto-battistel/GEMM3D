@@ -1,0 +1,1741 @@
+!=======================================================================================================
+!888888888888888888888888888888888888888888888888888o888888888888888888888888888888888888888888888888888
+!=======================================================================================================
+
+ In this file follows a description of how to use the program GEMM3D (Geophysical ElectroMagnetic Modeling 3D).
+
+
+
+  Author : Carlos Mateus Barriga Nunes 
+  
+  Academic training :
+		
+	   - Graduation in Geophysics from the Federal University of Pará-2012
+
+	   - Master in Geophysics from the Federal University of Pará-2014
+
+	   - PhD in Geophysics from the Federal University of Pará-2018
+
+
+	     Version : 1.0		 	Data  : 18/05/2017 
+
+
+!==========================================================================================
+!==========================================================================================
+
+
+	SUMMARY :
+
+	1 - GENERAL CONSIDERATIONS.
+
+	2 - GRID GENERATOR.
+
+	2.1 - EDITING THE FILE parametros_grid3D.dat
+
+	2.2 - DISCRETIZING THE HETEROGENEITY.
+
+	2.3 - DESCRIPTION OF THE OUTPUT FILES
+
+	3 - GEMM3D (Geophysical ElectroMagnetic Modeling 3D).
+
+	3.1 - NUMERICAL INTEGRATION.
+
+	3.2 - SAVING RESULTS OF THE DIRECT MODEL.
+
+	3.3 - SAVING JACOBIANA.
+
+	3.4 - USING THE DIRECT MODELING SUBJECTS AND JACOBIAN CALCULATION.
+
+	4 - FINAL CONSIDERATIONS.
+
+!==========================================================================================
+!==========================================================================================
+
+
+	1 - GENERAL CONSIDERATIONS :
+
+
+	Version 1.0 of This program allows not only the simulation of 3D Magnetotelluric 
+
+        responses, circular loop and electromagnetic dipoles using the Vector Finite Elements 
+
+        for both real and complex conductivity as well as the calculation of the sensitivity 
+
+        matrix by the Adjoints States Method of Auxiliary source for isotropic media.
+
+
+
+	The validity domain of the problem is discretized in non-regular blocks. The 
+
+	formulation of the direct problem is based on the decomposition of the total field 
+
+	into primary and secondary. Then, in the course of the JACOBIANA calculation, the 
+
+	primary fields of the attached sources are stored to be reused in each iteration of 
+
+	the investment process. In addition, to obtain exclusively the solution of the direct 
+
+	problem (Synthetic observed data) the primary are also always stored, except for MT.
+
+
+
+	From the set of .f90 files contained in the / GEMM3D / directory, the grid3D.f90 
+
+	file is the program that generates discretization of the domain and can be compiled 
+
+	separately, or together with its program (see makefile). It should run before your 
+
+	program. On the other hand, you can run the grid generator from within your program. 
+
+	One way to do this is to use the "SYSTEM" command.
+
+	For example :
+ 
+
+
+	status_grid = SYSTEM("./grid3D.exec")
+	if( status_grid /= 0 )then
+		write(*,*)'Grid_3D program did not run successfully'
+		write(*,*)'Status', status_grid
+	end if
+
+	status_grid is an integer variable. In addition, the current process waits until 
+
+	the command is finalized.
+
+
+
+	The Main_ME.f90 file is an example of how to use the subroutines for direct problem 
+
+	simulation and Jacobian calculation. There is also a Makefile showing how compile 
+
+	this library with your program. Also note that to use this library you will need the 
+
+	Intel ifort compiler because this package uses SOLVER PARDISO that is available in the
+
+	Intel library. Finally, this program has a global variables module. So I suggest that 
+
+	you first take a look at it (variable_globals.f90) so you do not change the value of a 
+
+	variable throughout your program's execution.
+
+
+
+	2 - GRID GENERATOR :
+
+
+	The program that generates the grid, when executed, reads the file parametros_grid3D.dat 
+
+	to generate the discretization. This file is organized as follows:
+
+
+	2.1 EDITING THE FILE parametros_grid3D.dat
+
+	- Your program should be in the directory ... / GEMM3D / or the contents of the GEMM3D 
+
+	folder should be in the folder where your program will run. Then, in the initial line of the file, 
+
+	enter the path of the folder where the modeling program is running. 
+
+
+	For example:
+
+
+		1st line (path)
+
+	        '~/Desktop/GEMM3D/'
+
+
+	The path name can not exceed 300 characters.
+
+
+	- On the next line (second line), you have the word that will name the output files that hold the information about
+
+	the discretization. The respective files are: a file of coordinates per node of the mesh, nodes per 
+
+	element, edges per element, nodes per edge, edges of the Dirichlet boundary, elements per inversion cell, 
+
+	and finally cells neighboring each cell. The respective extensions, .node, .ele, .rste, .rsts, .rstb, 
+
+	.eblc, .blcvz, .eobs and .obs. All output files, either already exist, or will be created in the 
+
+	/GEMM3D/grid3D folder with a user-given name, for example mdl3D.
+
+
+	For example:
+
+               '~/Desktop/GEMM3D/'
+		mdl3D                 ! second line (name of the template that will be assigned to its output files)
+
+
+	Name of output files:
+
+		mdl3D.node   ! Index of coordinate nodes
+		mdl3D.ele    ! Index of nodes per element
+		mdl3D.rste   ! Index of edges per element
+		mdl3D.rsts   ! Index of nodes per edge
+		mdl3D.rstb   ! Border edge index
+		mdl3D.eblc   ! Index of elements by heterogeneity (or inversion block)
+		mdl3D.eobs   ! Element index per solution node
+		mdl3D.obs    ! Index and coordinates of observations
+		mdl3D.blcvz  ! Index of neighboring cells to the kth inversion cell.
+	
+
+	From 3rd to 5th line, the limits of the domain are defined in the directions x, y and z, 
+
+	respectively. That is,
+
+
+	        '~/Desktop/GEMM3D/'
+		mdl3D (2nd row)
+		-10.d3 10.d3   grid boundary in the direction (x)
+		-15.d3 15.d3   grid boundary in the direction (y)
+		-6.0d3 10.d3   grid boundary in direction (z)
+
+
+	In the next line (6th line), we have an integer representing the number of layers of the 
+
+	1D model. The number of layers takes into account the half-space below the substrate. That is, 
+
+	if the background model is a layer between two half-spaces (Ex: air, sea and sediment with 
+
+	infinite thickness), the integer in the 5th line that represents the number of layers is 2 
+
+	(water slide + semi- space), such that.
+
+
+	        '~/Desktop/GEMM3D/'   (1st row)
+		mdl3D                 (2nd row)
+		-10.d3 10.d3   grid boundary in the direction (x)
+		-15.d3 15.d3   grid boundary in the direction (y)
+		-6.0d3 10.d3   grid boundary in direction (z)
+		2 	       Number of layers
+
+
+	After defining the number of layers of the 1D model, we enter the resistivities of each layer. 
+
+	Exemplifying a case of a layer plus the semi-space (layer of infinite thickness), we have
+
+
+	        '~/Desktop/GEMM3D/'   (1st row)
+		mdl3D                 (2nd row)
+		-10.d3 10.d3   !grid boundary in the direction (x)
+		-15.d3 15.d3   !grid boundary in the direction (y)
+		-6.0d3 10.d3   !grid boundary in direction (z)
+		 2             !Number of layers
+	 	 3.d-1         !resistivity of the first layer.
+		 1.0d0         !resistivity of the second layer (semi-space).
+
+
+	In the line immediately after the last resistivity value, if you have NC layers in the model, 
+
+	put the value of NC-1 thicknesses of the layers. In this example being built step by step, 
+
+	NC = 2, logo
+
+
+	        '~/Desktop/GEMM3D/'   (1st row)
+		mdl3D                 (2nd row)
+		-10.d3 10.d3   !grid boundary in the direction (x)
+		-15.d3 15.d3   !grid boundary in the direction (y)
+		-6.0d3 10.d3   !grid boundary in direction (z)
+		 2             !Number of layers
+	 	 3.d-1         !resistivity of the first layer.
+		 1.0d0         !resistivity of the second layer (semi-space).
+		 1.0d3         !thickness of the NC-1 layers.
+	
+
+	Note: If the model has only one semi-space, the user must start this parameter with any value.
+
+
+	The user controls much of the discretization. For example, it is he who defines the discretization 
+
+	of the layers along the z-direction. This is effect by defining the number of points between the 
+
+	intervals of each layer, and the distribution of these points will be linearly generated, that is, 
+
+	with a constant increase. For example, if a layer is 1000 m thick, and if the discretization interval 
+
+	is 100 m long, simply enter the integer 9 on the next line after the value of the last thickness. 
+
+	This will result in,	
+
+		
+	        '~/Desktop/GEMM3D/'   (1st row)
+		mdl3D                 (2nd row)
+		-10.d3 10.d3   !grid boundary in the direction (x)
+		-15.d3 15.d3   !grid boundary in the direction (y)
+		-6.0d3 10.d3   !grid boundary in direction (z)
+		 2             !Number of layers
+	 	 3.d-1         !resistivity of the first layer.
+		 1.0d0         !resistivity of the second layer (semi-space).
+		 1.0d3         !thickness of the NC-1 layers.
+		 9             !Number of points in the range of each (NC-1) layer.
+
+
+	NOTE THAT:
+
+	- if you want to refine a region in the z-direction, for example, in the region where you want 
+
+	to get the observed data, simply define a layer there and add points to it.
+
+
+	- When there is an overlap of the inversion grid (or heterogeneity) with the 1D model, there will 
+
+	probably be more nodes inside the layer than you previously defined. So be careful about this so 
+
+	that very 'flat' elements are not generated.
+
+
+	Then enter an integer that defines the number of observations. In the next line, three columns start 
+
+	with the (x, y, z) coordinates of the observations. In a simple case, for example, for three points of 
+
+	observation aligned in the direction x surrounding the origin, we have
+
+
+
+	        '~/Desktop/GEMM3D/'       (1st row)
+		 mdl3D                    (2nd row)
+		-10.d3 10.d3              !grid boundary in the direction (x)
+		-15.d3 15.d3              !grid boundary in the direction (y)
+		-6.0d3 10.d3              !grid boundary in direction (z)
+		 2                        !Number of layers
+	 	 3.d-1                    !resistivity of the first layer.
+		 1.0d0                    !resistivity of the second layer (semi-space).
+		 1.0d3                    !thickness of the NC-1 layers.
+		 9                        !Number of points in the range of each (NC-1) layer.
+		 3                        !N observations
+		-5.0d1 0.d0 1.005d3       ! (x, y, z) of the observations.
+		 0.0d0   0.d0  1.005d3
+		 5.0d1   0.d0  1.005d3 
+
+
+
+	
+	In the line immediately after the observations, we have five integer values. The first three 
+
+	represent the number of coordinates that define the inversion grid (or a heterogeneity) along 
+
+	the coordinate directions. The last two numbers must be started with 0 or 1. If the fourth number 
+
+	is (1), indicates that in the following lines there will be a second column that will tell the 
+
+	amount of points that should be included in the intervals that define each inversion cell (or heterogeneity) 
+
+	in each coordinate direction. If (0), this column is ignored. The latter number, in turn, indicates 
+
+	whether the conductivity of the heterogeneities of the model assumed real or complex values. That is, 
+
+	if (0) the conductivity is real. On the other hand, if> = 1 and <= 3, the values ​​it can assume are complex: 
+
+
+		(1) it defines the constitutive function of Days.
+		(2) defines the Cole-Cole function. 
+		(3) Multi-Cole-Cole function. 
+
+
+	The simplest case suggests the combination 2, 2, 2, 0, 0. But by imposing a discretization along the 
+
+	intervals on each axis and initially assuming a real conductivity, we will make 2, 2, 2, 1, 0. Thus,
+	
+
+	        '~/Desktop/GEMM3D/'       (1st row)
+		 mdl3D                    (2nd row)
+		-10.d3 10.d3              !grid boundary in the direction (x)
+		-15.d3 15.d3              !grid boundary in the direction (y)
+		-6.0d3 10.d3              !grid boundary in direction (z)
+		 2                        !Number of layers
+	 	 3.d-1                    !resistivity of the first layer.
+		 1.0d0                    !resistivity of the second layer (semi-space).
+		 1.0d3                    !thickness of the NC-1 layers.
+		 9                        !Number of points in the range of each (NC-1) layer.
+		 3                        !N observations
+		-5.0d1 0.d0 1.005d3       ! (x, y, z) of the observations.
+		 0.0d0   0.d0  1.005d3
+		 5.0d1   0.d0  1.005d3 
+		 2 2 2 1 0                !Number of points in x, y, and z of the inversion grid,...
+
+
+
+	Continuing, in the next line, we have respectively the coordinates that represent the cells of the grid
+
+	and the number of points inside the cell in that coordinate. You begin with the coordinates at x, then at y, 
+
+	and finally at z. For example, consider a heterogeneity defined in the interval x = y = [- 500 500] and 
+
+	z = [2000 2200]. This will result in,
+
+
+	        '~/Desktop/GEMM3D/'       (1st row)
+		 mdl3D                    (2nd row)
+		-10.d3 10.d3              !grid boundary in the direction (x)
+		-15.d3 15.d3              !grid boundary in the direction (y)
+		-6.0d3 10.d3              !grid boundary in direction (z)
+		 2                        !Number of layers
+	 	 3.d-1                    !resistivity of the first layer.
+		 1.0d0                    !resistivity of the second layer (semi-space).
+		 1.0d3                    !thickness of the NC-1 layers.
+		 9                        !Number of points in the range of each (NC-1) layer.
+		 3                        !N observations
+		-5.0d1 0.d0 1.005d3       ! (x, y, z) of the observations.
+		 0.0d0   0.d0  1.005d3
+		 5.0d1   0.d0  1.005d3 
+		 2 2 2 1 0                !Number of points in x, y, and z of the inversion grid,...
+		-500 3                    !coordinate 1 in the x-direction and the number of points in the interval x = [500 500]
+		 500                      !coordinate 2 in the x direction
+		-500 3                    !coordinate 1 in the y direction and the number of points in the interval y = [500 500]
+		 500                      !coordinate 2 in y direction
+		 2000 1                   !coordinate 1 in the z-direction and the number of points in the interval z = [2000 2200]
+		 2200                     !coordinate 2 in the z-direction	 	 
+	
+
+
+	Finalmente, entra-se com a distribuição de resistividade das heterogeneidades ( ou chute inicial para as 
+
+	células do grid de inversão se for o caso). Note-se que o número (Nh) de heterogeneidades do modelo é dado 
+
+	a partir das (Nx), (Ny), e (Nz) de coordenadas que define o grid, ou seja, Nh=(Nx-1)*(Ny-1)*(Nz-1). 
+
+	Portanto, o exemplo construido até aqui, com Nh=1, leva ao seguinte arquivo de entrada,
+
+
+
+	        '~/Desktop/GEMM3D/'       (1st row)
+		 mdl3D                    (2nd row)
+		-10.d3 10.d3              !grid boundary in the direction (x)
+		-15.d3 15.d3              !grid boundary in the direction (y)
+		-6.0d3 10.d3              !grid boundary in direction (z)
+		 2                        !Number of layers
+	 	 3.d-1                    !resistivity of the first layer.
+		 1.0d0                    !resistivity of the second layer (semi-space).
+		 1.0d3                    !thickness of the NC-1 layers.
+		 9                        !Number of points in the range of each (NC-1) layer.
+		 3                        !N observations
+		-5.0d1 0.d0 1.005d3       ! (x, y, z) of the observations.
+		 0.0d0   0.d0  1.005d3
+		 5.0d1   0.d0  1.005d3 
+		 2 2 2 1 0                !Number of points in x, y, and z of the inversion grid,...
+		-500 3                    !coordinate 1 in the x-direction and the number of points in the interval x = [500 500]
+		 500                      !coordinate 2 in the x direction
+		-500 3                    !coordinate 1 in the y direction and the number of points in the interval y = [500 500]
+		 500                      !coordinate 2 in y direction
+		 2000 1                   !coordinate 1 in the z-direction and the number of points in the interval z = [2000 2200]
+		 2200                     !coordinate 2 in the z-direction	 
+	         100                      !resistivity of heterogeneity.
+
+	NOTE THAT: 
+
+
+		- In the direction of the x-axis in the interval x = [-500 500] of the example above, the points
+	
+		{-500 (grid), -250 (internal to the grid), -50 (observation point), 0 (observation point),
+	
+		50 (observation point), 250 (internal to the grid), 500 (grid)}.
+
+
+		- The point 0 (Obs) allows because, for a given degree of approximation, the coordinate of the 
+
+		observations will be maintained.
+
+
+	Finally, assuming conductivity to be complex (combination 2, 2, 2, 1, [1,2, or 3]), we will exemplify 
+
+	how the last line will look for each possible choice of the complex conductivity function. Then, by choosing 
+
+	the function of Days, Cole-Cole and Mult-Cole-Cole, respectively, are for an arbitrary choice of the 
+
+	respective constituent parameters,
+
+         .
+         .
+         .
+        100 	6.0d-1	1.0d2	6.0d-1  7.d-1                  ( Dias )
+
+        100	8.9d-1	4.7d-6	6.5d-1                         (  Cole-Cole )
+
+        100	8.9d-1	4.7d-6	6.5d-1 	3.2d-1	1.7d-4	4.9d-1 ( Multi-Cole-Cole )
+
+
+	
+	- Note, therefore, that the number of columns to the right of the conductivity column will depend on the 
+
+	constitutive function chosen. Thus, considering the example constructed above adopting the resistivity of 
+
+	heterogeneity as complex and using the Cole-Cole type constitutive function, we arrive at the following 
+
+	configuration of the file:
+
+
+	        '~/Desktop/GEMM3D/'          (1st row)
+		 mdl3D                       (2nd row)
+		-10.d3 10.d3                 !grid boundary in the direction (x)
+		-15.d3 15.d3                 !grid boundary in the direction (y)
+		-6.0d3 10.d3                 !grid boundary in direction (z)
+		 2                           !Number of layers
+	 	 3.d-1                       !resistivity of the first layer.
+		 1.0d0                       !resistivity of the second layer (semi-space).
+		 1.0d3                       !thickness of the NC-1 layers.
+		 9                           !Number of points in the range of each (NC-1) layer.
+		 3                           !N observations
+		-5.0d1 0.d0 1.005d3          ! (x, y, z) of the observations.
+		 0.0d0   0.d0  1.005d3
+		 5.0d1   0.d0  1.005d3 
+		 2 2 2 1 2                   !Number of points in x, y, and z of the inversion grid,...
+		-500 3                       !coordinate 1 in the x-direction and the number of points in the interval x = [500 500]
+		 500                         !coordinate 2 in the x direction
+		-500 3                       !coordinate 1 in the y direction and the number of points in the interval y = [500 500]
+		 500                         !coordinate 2 in y direction
+		 2000 1                      !coordinate 1 in the z-direction and the number of points in the interval z = [2000 2200]
+		 2200                        !coordinate 2 in the z-direction	 
+	         100  8.9d-1  4.7d-6  6.5d-1 !resistivity of heterogeneity and parameters of the complex resistivity function.
+
+
+
+
+	2.2 - DISCRETIZING THE HETEROGENEITY:
+
+
+
+	As mentioned earlier, you control much of the discretization (regions of the NC-1 layers and heterogeneities). The numbering
+
+	of the heterogeneities or inversion cells are made in the increasing direction of the axes, beginning in the x direction, 	
+	then y, and finally z. As an example, we will describe a model of two heterogeneities described in figure (2.1), firstly,
+
+	using a grid of 2 blocks (or cells). Next, we will use 8 blocks to describe the same model. To do so, we divide the
+
+	heterogeneity once along the y-axis and once along the z-axis.
+
+
+	EXAMPLE 2.1
+
+                  -----X						
+                 /|													
+                / |							
+               Y  Z							
+                               _____________________________		
+                              /|            /|             /|		
+                             / |           / |            / | 		
+                            /  |__________/__|___________/  |  		
+                           /   |         /   /          /   |	        
+                          /   /         /   /          /    | 	  	 
+                         /___/_________/___/__________/    /	 	
+                        |   /         |   /          |    / 		
+                        |  /          |  /           |   /  	 	
+                        | /           | /            |  /
+                        |/ 10 Ohmm    |/  100 Ohmm   | / 
+                        |_____________|______________|/  
+
+
+                    Figure(2.1) model of two heterogeneities.
+
+
+	  3  3  3  0  0                   !Number of points in x, y, and z of the inversion grid,...
+	  -500     0                      !coordinate 1 in the x-direction and the number of points in the interval x = [-500 500]
+	   500                            !coordinate 2 in the x direction
+	  -500     0                      !coordinate 1 in the y-direction and the number of points in the interval y = [-500 500]
+	   500                            !coordinate 2 in the y direction
+	   2000    0                      !coordinate 1 in the z-direction and the number of points in the interval z = [2000 2200]
+	   2200	                          !coordinate 2 in the z-direction	 
+
+
+	The number of heterogeneities is Nh = 2 and the section describing the resistivity of the model is thus,
+
+			
+	  10.0
+	  1.d2
+
+
+
+
+	EXAMPLE 2.2
+
+
+		  -----X						
+		 /|													
+		/ |							
+	       Y  Z							
+                                    ______________________________		
+                                   /|            /|              /|		
+                                  / |    1      / |    2        / | 		
+                                 /_____________/_______________/  |  		
+                                /             /               /|  |	        
+                               /       3     /      4        / |  | 	  	
+                              /_____________/_______________/  | /|		
+                             |   |/        |   |/          |   |/ |		
+                             |   |_________|___|___________|__ |  |	 	
+                             |  /          |  /            |  /|6 |		
+                             | /     7     | /     8       | / |  /
+                             |/____________|/______________|/  | /	
+                             |   |/        |   |/          |   |/		 
+                             |   |_________|___|___________|___|		
+                             |  /          |  /            |  /
+                             | /           | /             | /
+                             |/____________|/______________|/		
+		 		
+
+             Figure(2.2) model of two heterogeneities described by eight blocks.
+
+
+
+
+	  3  3  3  0  0                   !Number of points in x, y, and z of the inversion grid,...
+	  -500     0                      !coordinate 1 in the x-direction and the number of points in the interval x = [-500 0.0]
+	   0.0	   0                      !coordinate 2 in the x direction and the number of points in the interval x = [ 0.0 500]
+	   500                            !coordinate 3 in the x direction
+	  -500     0                      !coordinate 1 in the y-direction and the number of points in the interval y = [-500 0.0]
+	   0.0	   0                      !coordinate 2 in the y direction and the number of points in the interval y = [ 0.0 500]
+	   500                            !coordinate 3 in the y direction
+	   2000    0                      !coordinate 1 in the z-direction and the number of points in the interval z = [2000 2100]
+	   2100    0                      !coordinate 2 in the z-direction and the number of points in the interval z = [2100 2200] 
+	   2200	                          !coordinate 3 in the z-direction	 
+
+
+	The number of heterogeneities is Nh = 8 and the section describing the resistivity of the model is thus,	
+
+	
+		
+	  10.0
+	  1.d2
+	  10.0			
+	  1.d2 
+	  10.0
+	  1.d2
+	  10.0
+	  1.d2
+
+
+	Note:
+
+		The discretization between the external boundary of the model and the boundaries of heterogeneity 
+
+		are generated automatically.
+
+	
+	NOTE THAT:  
+
+	- the program to generate the grid does not allow to define heterogeneities in isolation. That is, if you want to 
+
+	simulate the answer in the presence of separate heterogeneities, you should do this from the grid definition. That is, 
+
+	you must assign the resistivity values of the bodies to the respective cells that define them. For cells that do not
+
+	correspond to the body, the value of the background resistivity is assigned.
+
+
+	In the current input file, parametro_gri3D.dat, which is in the / GEMM3D / directory, there are a number of examples
+
+	illustrating how to configure this file.
+
+
+
+	2.3 - DESCRIPTION OF THE OUTPUT FILES.
+
+
+	In the following sections there is a brief description of the contents of the output files of the grid3D program.
+
+
+        2.3.1 - File.node
+
+	This file has the coordinates that define the nodes of the grid, as well as a border marker.
+
+        # = Number.
+
+
+        First line: < # of nodes >
+    	line: <x> <y> <z> [ border identifier 0 or 1 ] 
+
+
+
+        2.3.2 - File.ele
+
+	This file has the indexes of the nodes that define each element and the attribute associated 
+
+	with the resistivity of the model.
+
+
+        First line: < # of element >
+    	lines: <node1> <node2> <node3> ... <node8> [ physical property ] 
+
+
+
+        2.3.3 - File.rste
+
+	In this file we have the indices of the edges that define each element of the grid.
+
+
+        First line: < # of element >
+    	lines: <edge1> <edge2>...<edge12> 
+
+
+
+        2.3.4 - File.rsts
+
+	In this file we have the indexes of the nodes that define the edges of the grid.
+
+
+        First line: < # of edge >
+    	lines: <node1> <node2> 
+
+
+
+        2.3.5 - File.rstb
+
+	Here we have a file with the indices of the edges of the Dirichlet border.
+
+
+        First line: < # of edge >
+    	lines: <edge> 
+
+
+
+        2.3.6 - File.eblc
+
+	The information contained in this file refers to the indices of the elements that are within 
+
+	a heterogeneity or inversion cell, as well as their respective values of resistivity and the 
+
+	parameters associated to complex resistivity, provided that it is chosen as such. This file 
+
+	is used to calculate the sensitivity matrix.
+
+ 
+	The first column of this file is integer values that will be read and stored in two different 
+
+	vectors. The second part of the 1st column is a vector with elements that belong to each inversion 
+
+	block neatly. The first part of this column stores the indices of the vector described above, 
+
+	from which the elements of the respective block begin to count. Note, therefore, that the structure 
+
+	is analogous to Compressed Row Storage (CRS) storage structure, except for the column index vector.
+
+
+        ##   = Index of where the elements for the
+        rho  = resistivity
+        prmt = parameter of the complex conductivity function.
+
+	First line:< # Heterogeneities or Inversion Blocks >
+	Lines: < ## block1 >< rho 1><prmt11>...<prmt1N>
+               < ## block2 >< rho 2><prmt21>...<prmt2N>
+                      .        .        .        .
+                      .        .        .        . 
+                      .        .        .        .
+               < ## blockM >< rho M><prmtM1>...<prmtMN>
+        Lines>:<# of element>
+
+
+
+        2.3.7 - File.eobs
+
+	A file that stores information about the elements that share a point of observation. 
+
+	The structure of this file is analogous to the structure of the first column of the 
+
+	previous file.
+
+
+	Fisrt line:< # of observations >
+	Lines: < ## obs1 >
+               < ## obs2 >
+                      .     
+                      .     
+                      .     
+               < ## obsN >
+        Lines>:<# of element>
+
+
+
+        2.3.8 - File.obs
+     
+	This file stores the observation points.
+
+
+        Fisrt line: < # of observations >
+    	lines: <# of node><x> <y> <z>
+
+
+
+        2.3.9 - File.blcvz
+
+	This file is of special interest to those who are implementing an inversion algorithm. 
+
+	It stores the information about the neighboring blocks with each inversion cell. Therefore, 
+
+	useful information when applying the links and introducing information a priori. Finally, 
+
+	it is worth saying that reading this file is the task of the user and the number of blocks 
+
+	is information known in advance by him.
+  
+        #E  = from the left block.
+        #D  = from the right block.
+        #AC = from the above block.
+        #AB = from the block below.
+    
+                <    indexes on the x-axis    >  <    indexes on the y-axis    >  <    indexes on the z-axis    >
+    	linhas: < indexes #E > < indexes #D >  < indexes #E > < indexes #D >  < indexes #AC > < indexes #AB >
+ 
+
+
+
+!============================================================================================================================
+!8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+!============================================================================================================================
+
+
+	3 - GEMM3D PROGRAM ( Geophysical ElectroMagnetic Modeling 3D ).
+
+	
+	As already mentioned, this package includes subroutines for modeling the data of MT and dipole electromagnetic 
+
+	sources. The user-friendly routines listed in the GEMM3D_EFA.f90 file are listed below.
+
+
+	( 1 ) call inic_entrada( path_atual )
+
+	( 2 ) call MODELO_SINTET_MT
+
+	( 3 ) call MODELO_SINTET_MT_CSIG
+
+	( 4 ) call MODELO_SINTET_CSAMT( TRNS1D, NPROC )
+
+	( 5 ) call MODELO_SINTET_CSAMT_CSIG( TRNS1D, NPROC )
+
+	( 6 ) call MODELO_SINTET_BCH( TRNS1D, NPROC )
+
+	( 7 ) call MODELO_SINTET_BCH_CSIG( TRNS1D, NPROC )
+
+	( 8 ) call MODELO_SINTET_DPEH( FDP, TRNS1D, NPROC )
+
+	( 9 ) call MODELO_SINTET_DPEH_CSIG( FDP, TRNS1D, NPROC )
+
+	( 10 ) call JACOB_MT3D( ADJ1D, NPROC, MSB, X )
+
+	( 11 ) call JACOB_CSAMT3D( ADJ1D, NPROC, MSB, X )
+
+	( 12 ) call JACOB_DPEM3D( DPT, DPR, ADJ1D, TRNS1D, NPROC, MSB, X )
+
+	( 13 ) call ATUALIZANDO_vrho_e( rhohet )
+
+	( 14 ) call open_arq_sensib_MT
+
+	( 15 ) call open_arq_sensib_CSAMT
+
+	( 16 ) call open_arq_sensib_DPEM( DPT )
+
+
+	To use these subroutines simply declare USE GEMM3D in your program.
+
+
+	The routine (1) will read all the necessary simulation information and start selecting the filter. 
+
+	This routine will therefore read the output files generated by grid3D.f90, as well as the entries.dat 
+
+	file. Here is an example of the structure of the information contained in this file, as well as its description:
+
+
+	!====================================================================================================================
+					   Example of file contents entradas.dat 
+	!====================================================================================================================
+
+	model_test1.node
+	model_test1.ele
+	model_test1.rste
+	model_test1.rsts
+	model_test1.rstb
+	model_test1.eblc
+	model_test1.eobs
+	model_test1.obs
+	1	    	      # Frequency amount
+	1.25d-1		      # nth frequency
+	1		      # Transmitters amount. This and the next parameter must appear in the file even if the MT is being modeled
+	-3.d3   0.d0   9.7d2  # transmitter coordinates (x0,y0,z0=h0)
+	2    	              # 1D Model: NC = Number of layers + the semi-space.( If NC = 1, model 1D = Semi-space )
+	3.d-1    	      # Resistivity of NC layers
+	1.d0
+	1.d0    	      # Relative permissiveness of NC layers
+	1.d0
+	1.d3    	      # thickness of the NC-1 layers. (If NC = 1 the thickness should be started with any value)
+	800		      # number of model heterogeneity
+
+	!====================================================================================================================
+
+
+
+	The input argument of (1), is a character variable (len = 300) that will have the path information that your 
+
+	program is in. Because the GEMM3D modules must be in the same directory (see section 2). For example, if 
+
+	your program is running in the / GEMM3D / Desktop folder, the variable should be started as,
+
+
+	path_atual = '~/Desktop/GEMM3D/'
+
+
+	Here is an example of how this routine should appear in your program.
+
+        Ex:
+
+
+	!---------------------------------------------------------------
+        !888888888888888888888888888888888888888888888888888888888888888
+        !--------------------------------------------------------------- 
+
+                PROGRAM Your_program
+                USE GEMM3D
+                        .
+                        .
+                        .
+		Declaration of variables
+                        .
+                        .
+                        .
+               	path_atual = '~/Desktop/GEMM3D/'
+                call inic_entrada( path_atual )
+                        .
+                        .
+                        .
+                END PROGRAM Your_program
+
+	!---------------------------------------------------------------
+        !888888888888888888888888888888888888888888888888888888888888888
+        !--------------------------------------------------------------- 
+
+
+	From now on it will appear in all examples.
+
+
+	3.1 NUMERICAL INTEGRATION.
+	
+
+	The integrals involving Bessel's functions J0 and J1 are solved using the linear digital filter technique. By default, 
+
+	we have set the 241 points. of Kong. However, the 101, 201 and 401-point Kerry Key filters have also generated equivalent 
+
+	results for the tested models. In order to choose such filters, it is sufficient to assign the respective values listed 
+
+	below to the global variables autr_fltJ0, numpJ0, autr_fltJ1 and numpJ1 after the subroutine call (1 ).
+
+
+	Developers of Filters J0 and J1:
+
+
+	Rijo       ---> autr_fltJ0 = 0 ou autr_fltJ1 = 0
+	Frayzer    ---> autr_fltJ0 = 1 ou autr_fltJ1 = 1
+	Guptasarma ---> autr_fltJ0 = 2 ou autr_fltJ1 = 2
+	Kong       ---> autr_fltJ0 = 3 ou autr_fltJ1 = 3
+	Key        ---> autr_fltJ0 = 4 ou autr_fltJ1 = 4
+
+
+	TO Rijo's Rijo       ---> numpJ0 = 61 		   ;  numpJ1 = 47 
+	TO Rijo's Frayzer    ---> numpJ0 = 37  		   ;  numpJ1 = 27
+	TO Rijo's Guptasarma ---> numpJ0 = 61 ou 120       ;  numpJ1 = 47 ou 140.
+	TO Rijo's Kong       ---> numpJ0 = 61 ou 241       ;  numpJ1 = 61 ou 241
+	TO Rijo's Key	     ---> numpJ0 = 101, 201 ou 401 ;  numpJ1 = 101, 201 ou 401
+
+
+	Example :
+
+		autr_fltJ0 = 2     ! Author Guptasarma for the J0 filter
+		numpJ0     = 120   ! Number of filter points
+	
+	 	autr_fltJ1 = 2     ! Author Guptasarma for the J1 filter
+		numpJ1     = 140   ! Number of filter points
+	
+	
+
+
+	3.2 - SAVING DIRECT MODEL RESULTS:
+
+
+	The routines from (2) to (9), when executed, save their outputs respectively in the subdirectories:
+
+	/GEMM3D/Fields_MT
+
+	/GEMM3D/Fields_CSAMT  
+
+	/GEMM3D/Fields_EMDP/HCL  ( HCL indicates that the source is a Horizontal Circular Loop )
+
+	/GEMM3D/Fields_EMDP/ExDP ( ExDP indicates that the source is an electric dipole in the x-direction )
+
+	/GEMM3D/Fields_EMDP/EyDP ( EyDP indicates that the source is an electric dipole in the y-direction )
+
+	/GEMM3D/Fields_EMDP/EzDP ( EzDP indicates that the source is an electric dipole in the z-direction )
+
+	/GEMM3D/Fields_EMDP/HxDP ( HxDP indicates that the source is a magnetic dipole in the x-direction )
+
+	/GEMM3D/Fields_EMDP/HyDP ( HyDP indicates that the source is a magnetic dipole in the y-direction )
+
+	/GEMM3D/Fields_EMDP/HzDP ( HzDP indicates that the source is a magnetic dipole in the z-direction )
+
+
+
+	The files that save the outputs in their subdirectories are:
+
+
+
+	- field_Es_1.dat, field_Es_2.dat, field_Hs_1.dat, field_Hs_2.dat, field_Es_1.dat	
+
+	  field_Et_1.dat, field_Et_2.dat, field_Ht_1.dat, field_Ht_2.dat, field_Et_1.dat	
+
+          rho_ap_fase.dat ( to MT and CSAMT )
+
+
+	- field_Es_HCL.dat field_Et_HCL.dat, field_Hs_HCL.dat field_Ht_HCL.dat (To HCL)
+
+	- field_Es_DIP.dat field_Et_DIP.dat, field_Hs_DIP.dat field_Ht_DIP.dat (TO dipoles)
+
+
+	NOTE: The letter (s) in the filename indicates secondary field and (t) total field, while the numbering 
+
+	indicates the response to the first or second polarization of the incident field. The file (rho_ap_fase.dat) 
+
+	contains the resistivity and phase results. FURTHER, ALWAYS YOU EXCUTE THE PROGRAM THEIR RESULTS WILL BE REPLACED.             
+
+
+	ARQUIVO rho_ap_fase.dat: MT or CSAMT data output FILE.
+
+
+	DESCRIPTION
+
+	frequency 1: Nobs will denote the number of observations, the values are organized as described below.
+
+
+        rho_ap_xx(1),    phase_xx(1),    rho_ap_yy(1),    phase_yy(1),    rho_ap_xy(1),    phase_xy(1),    rho_ap_yx(1),     phase_yx(1)
+
+        rho_ap_xx(2),    phase_xx(2),    rho_ap_yy(2),    phase_yy(2),    rho_ap_xy(2),    phase_xy(2),    rho_ap_yx(2),     phase_yx(2)
+
+	          .           .             .                  .                .               .                .                .
+		  .           .             .                  .                .               .                .                .
+		  .	      .             .                  .                .               .                .                . 
+
+        rho_ap_xx(Nobs), phase_xx(Nobs), rho_ap_yy(Nobs), phase_yy(Nobs), rho_ap_xy(Nobs), phase_xy(Nobs), rho_ap_yx(Nobs), phase_yx(Nobs)
+
+
+	frequency 2 - the above pattern repeats up to the nth frequency.
+	          .           .             .                  .                .               .                .                .
+		  .           .             .                  .                .               .                .                .
+		  .	      .             .                  .                .               .                .                . 
+
+	nth frequency
+
+
+
+	ARQUIVOS QUE GUARDAM OS CAMPOS.
+
+	DESCRIPTION
+
+	frequência 1
+
+	Re{ Fx( 1 )},  Im{ Fx( 1 )},  Re{ Fy( 1 )},  Im{ Fy( 1 )},  Re{ Fz( 1 )},  Im{ Fz( 1 )}   
+
+	Re{ Fx( 2 )},  Im{ Fx( 2 )},  Re{ Fy( 2 )},  Im{ Fy( 2 )},  Re{ Fz( 2 )},  Im{ Fz( 2 )}   
+
+	      .              .             .              .              .                . 
+	      .              .             .              .              .                . 
+	      .		     .             .              .              .                . 
+
+	Re{ Fx(Nobs)}, Im{ Fx(Nobs)}, Re{ Fy(Nobs)}, Im{ Fy(Nobs)}, Re{ Fz(Nobs)}, Im{ Fz(Nobs)}   
+
+
+	frequency 2 - the above pattern repeats up to the nth frequency.
+	          .           .             .                  .                .               .                .                .
+		  .           .             .                  .                .               .                .                .
+		  .	      .             .                  .                .               .                .                . 
+
+	nth frequency
+
+
+
+	3.3 - SAVING JACOBIANA:
+
+
+	The optional use subroutines (14), (15) and (16) open two files so you can store JACOBIANA in the /ME3DFG_EFA/Sensib_MT, 
+
+	/GEMM3D/Sensib_CSAMT or /GEMM3D/sensib_DPEM [/HCL, /DPEx,/DPEy, /DPEz, /DPHx, /DPHy or /DPHz] subdirectories, as 
+
+	illustrated in the examples.
+
+
+	In /GEMM3D/Sensib_MT or /GEMM3D/Sensib_CSAMT the files are, msb_rho_adj.dat and msb_fase_adj.dat with 
+
+	units = 3600 and unit = 3700, respectively. In /GEMM3D/Sensib_DPEM [/ HCL or ...] the files are, msb_EH_adj.dat and 
+
+	msb_fase_adj.dat with units = 3610 and unit = 3710, respectively.
+
+
+	If you do not want to use them, these directories can be deleted. But this is not recommended.
+
+
+
+	3.4 - USING THE SUBROUTINES from (2) to (12).
+
+
+
+	Example(1). Using routine (2) or (3). In this case there are no secrets, as there are no input arguments 
+
+		    to the subroutine, just call it directly, that is,
+
+
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+		PROGRAM Your_program
+		USE GEMM3D
+			.
+			.
+			.	
+		Declaration of variables
+			.
+			.
+			.
+		path_atual = '~/Desktop/GEMM3D/'	
+		call  inic_entrada( path_atual )
+
+		call  MODELO_SINTET_MT     ! For real conductivity
+		call  MODELO_SINTET_MT_SIG ! For complex conductivity
+			.
+			.
+			.	
+		END PROGRAM Your_program		
+	
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+!========================================================================================================
+!========================================================================================================
+
+
+	Example (2). Using routine (4) or (5). The input arguments to the subroutine are:
+
+
+                 INPUTS:
+
+                 TRNS1D : It is an integer variable that, when started with value 1, indicates that the 
+
+			  primary fields for the transmitter are to be calculated and stored. You should 
+
+			  assign this value whenever there is a change in the discretization of the model 
+
+			  or in the position of the source. Otherwise, it starts with 0.
+
+
+                 NPROC  : variable of integer type that indicates the process number used to calculate 
+
+			  the primary field in parallel.
+
+
+							
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+		PROGRAM Your_program
+		USE GEMM3D
+			.
+			.
+			.	
+		Declaration of variables
+			.
+			.
+			.
+		path_atual = '~/Desktop/GEMM3D/'	
+		call  inic_entrada( path_atual )
+
+                TRNS1D = 1 !
+                NPROC  = 6 !
+		call  MODELO_SINTET_CSAMT( TRNS1D, NPROC )     ! For real conductivity
+		call  MODELO_SINTET_CSAMT_SIG( TRNS1D, NPROC ) ! For complex conductivity
+			.
+			.
+			.	
+		END PROGRAM Your_program		
+	
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+!========================================================================================================
+!========================================================================================================
+
+
+	Ex( 3 ). Using routine (6) or (7). Input arguments
+
+		 for the subroutine are:
+
+                 INPUTS:
+
+                 TRNS1D : It is an integer variable that, when started with value 1, indicates that the 
+
+			  primary fields for the transmitter are to be calculated and stored. You should 
+
+			  assign this value whenever there is a change in the discretization of the model 
+
+			  or in the position of the source. Otherwise, it starts with 0.
+
+
+                 NPROC  : variable of integer type that indicates the process number used to calculate 
+
+			  the primary field in parallel.
+
+
+
+
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+		PROGRAM Your_program
+		USE GEMM3D
+			.
+			.
+			.	
+		Declaration of variables
+			.
+			.
+			.
+		path_atual = '~/Desktop/GEMM3D/'	
+		call  inic_entrada( path_atual )
+
+                TRNS1D = 1 !
+                NPROC  = 6 !
+		call  MODELO_SINTET_BCH( TRNS1D, NPROC )     ! For real conductivity
+		call  MODELO_SINTET_BCH_SIG( TRNS1D, NPROC ) ! For complex conductivity
+			.
+			.
+			.	
+		END PROGRAM Your_program		
+	
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+!========================================================================================================
+!========================================================================================================
+
+
+	Example( 4 ). Routine (8) and (9). For them there is one more input argument
+
+		      besides those already described for the routines of (2) to (7).
+
+
+                 INPUTS:
+
+                 DPT : Variable of character type (len = 20) that specifies the dipole 
+
+		       source that will assume the role of transmitter. It can assume 
+
+		       the following values:
+
+
+                      'ExDP' - For an electric dipole in the x-direction
+                      'EyDP' - For an electric dipole in the y-direction
+                      'EzDP' - For an electric dipole in the z-direction
+                      'HxDP' - For a magnetic dipole in the x direction
+                      'HyDP' - For a magnetic dipole in the y direction
+                      'HzDP' - For a magnetic dipole in the z direction
+
+
+                 TRNS1D : It is an integer variable that, when started with value 1, 
+
+			  indicates that the primary fields for the transmitter are to be 
+
+			  calculated and stored. You should assign this value whenever 
+
+			  there is a change in the discretization of the model or in the 
+
+			  position of the source. Otherwise, it starts with 0.
+
+
+                 NPROC  : variable of integer type that indicates the process number used to calculate 
+
+			  the primary field in parallel.
+
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+
+		PROGRAM Your_program
+		USE GEMM3D
+			.
+			.
+			.	
+		Declaration of variables
+			.
+			.
+			.
+
+		path_atual = '~/Desktop/GEMM3D/'
+		call  inic_entrada( path_atual )	
+
+		DPT    = 'DPEx' ! Electric dipole transmitter in the x direction
+                TRNS1D = 1
+                NPROC  = 4 
+	        call MODELO_SINTET_DPEH( FDP, TRNS1D, NPROC )       ! For real conductivity
+	        call MODELO_SINTET_DPEH_CSIG( FDP, TRNS1D, NPROC )  ! For complex conductivity
+			.
+			.
+			.	
+		END PROGRAM Your_program		
+
+
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+!========================================================================================================
+!========================================================================================================
+
+
+	Before we show the examples of how to use the routines that calculate the sensitivity matrix, 
+
+	we should cite the routine (13). It updates the resistivity of the elements that are within the 
+
+	inversion blocks for a given parameter estimate. Thus
+
+
+	Example( 5 ). Routine (13). Vector update of elements. She has one the only parameter, 
+
+		      the vector of estimated parameters (resistivity).
+
+	
+                 INPUTS: 
+
+                 - VP : Double precision real vector with dimension 
+
+			equal to No. of inversion blocks.
+
+
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+		PROGRAM Your_program
+		USE GEMM3D
+			.
+			.
+			.	
+		Declaration of variables
+			.
+			.
+			.
+		path_atual = '~/Desktop/GEMM3D/'
+		call  inic_entrada( path_atual )	
+
+                VP = Background
+
+		do i=1,nite
+
+			CALCULATION OF JACOBIANA
+
+			NEW ESTIMATED PARAMETER
+
+                        TESTING CONVERGENCE
+
+			IF( CONVERGENCE ACHIEVED )EXIT
+							
+			call ATUALIZANDO_vrho_e( VP )
+			
+		end do
+
+		END PROGRAM Your_program		
+
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+!========================================================================================================
+!========================================================================================================
+
+
+	Example( 6 ). Using the routine (10). First, there are four variables that are 
+
+		      arguments to subroutine, namely:
+
+
+                 INPUTS:
+
+		- ADJ1D : It is an integer variable that, when it starts with a value of 1, 
+
+			  you are saying that the fields for the attached fonts will be calculated
+
+			  and stored. You should assign this value if you are running your program 
+
+			  for the first time for a given model and the first iteration.
+ 	
+
+  		- NPROC : It is an integer variable that indicates the number of processes that will be 
+
+			  used to calculate the fields of the sources appended in parallel using Openmp.
+
+
+
+                 OUTPUTS:
+
+		- MSB : It is a double-precision matrix of the real type. It stores the sensitivity of the 
+
+			data for i-th iteration. She is of size
+
+			(4 X No. of observations X number of frequencies, No. of inversion blocks).
+
+			This variable must be allocated before the routine call
+
+
+			The output is organized as follows:
+
+			n  = Number of observations X Number of frequencies.
+
+			nb = Number of inversion blocks.
+
+
+			MSB(   1:n  , 1:nb) = dlog|rho_xy|/dlogP(j=1:nb)	
+
+			MSB( n+1:2n , 1:nb) = dlog|rho_yx|/dlogP(j=1:nb)
+
+			MSB( 2n+1:3n, 1:nb) = dphi_xy/dlogP(j=1:nb)
+
+			MSB( 3n+1:4n, 1:nb) = dphi_yx/dlogP(j=1:nb)				
+
+
+		- X : It is a vector that stores the estimated data for the distribution of the 
+
+		      i-th estimated parameter vector and has a defined dimension of
+
+		      (4 X number of observations X number of frequencies). It is a variable 
+
+		      of the actual type where the output is organized as follows.
+
+
+			n  = Number of observations X Number of frequencies.
+
+			MSB(    1:n  ) = rho_xy(1:n)
+			MSB(  n+1:2n ) = rho_yx(1:n)
+			MSB( 2n+1:3n ) = phi_xy(1:n) ! in redian pi
+			MSB( 3n+1:4n ) = phi_yx(1:n) ! in redian pi	
+
+
+
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+		PROGRAM Your_program
+		USE GEMM3D
+                        .
+                        .
+                        .
+		Declaration of variables
+                        .
+                        .
+                        .
+		path_atual = '~/Desktop/GEMM3D/'	
+		call  inic_entrada( path_atual )
+
+		RUNNING THE PROGRAM FOR THE FIRST TIME FOR A MODEL DATE
+
+		ADJ1D   = 1
+		NPROC   = 2
+
+                P0 = background ! resistivity
+		call JACOB_MT3D( ADJ1D, NPROC, MSB, X ) 
+
+		PARAMETER P1 ESTIMATED
+
+                TESTING CONVERGENCE
+
+                IF( CONVERGENCE NOT ACHIEVED )THEN
+
+                       NITE  = 3
+                       ADJ1D = 0
+                       do i=2,NITE
+
+                             call ATUALIZANDO_vrho_e( VP ) ! updating the resistivity vector of the elements
+
+                             call JACOB_MT3D( ADJ1D, NPROC, MSB, X ) 
+
+                             PARAMETER Pj ESTIMATED
+
+                             TESTING CONVERGENCE
+
+                             IF( CONVERGENCE NOT ACHIEVED )EXIT
+							
+                                        .
+                                        .
+                                        .
+                       end do
+
+                END IF
+			.
+			.
+			.	
+		END PROGRAM Your_program		
+
+
+	NOTE:
+
+		PLEASE NOTE THAT THE ADJ1D VARIABLE MUST BE AN INPUT 
+		PARAMETER FOR YOUR PROGRAM SO THAT YOU DO NOT NEED TO
+		REWARD YOUR PROGRAM IF YOU ARE EXECUTING THE CODE ON 
+		THE SAME BACKGROUND 1D.
+
+	
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+!========================================================================================================
+!========================================================================================================
+
+
+        Ex(7) The Routine JACOB_CSAMT3D( TRNS1D, ADJ1D, NPROC, MSB, X )
+
+              is completely analogous to that of the example above except for
+
+              input variable
+           
+
+                 TRNS1D : It is an integer variable that, when it starts with a value of 1, 
+
+			  you are saying that the fields for the attached fonts will be calculated
+
+			  and stored. You should assign this value if you are running your program 
+
+			  for the first time for a given model and the first iteration.
+
+             This variable is started exactly as ADJ1D, that is, first
+ 
+                TRNS1D  = 1              
+		ADJ1D   = 1
+		NPROC   = 2
+
+                P0 = background ! resistivity
+		call JACOB_CSAMT3D( TRNS1D, ADJ1D, NPROC, MSB, X ) 
+                        .
+                        .
+                        .
+                IF( CONVERGENCE NOT ACHIEVED )THEN
+
+                       NITE   = 3
+                       TRNS1D = 0              
+                       ADJ1D  = 0
+                       do i=2,NITE
+
+                                call ATUALIZANDO_vrho_e( VP ) ! updating the resistivity vector of the elements
+                		call JACOB_CSAMT3D( TRNS1D, ADJ1D, NPROC, MSB, X ) 
+                                        .
+                                        .
+                                        .
+
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+!========================================================================================================
+!========================================================================================================
+
+
+	Ex( 8 ). Rotina (12). Argumentos para subrotina :
+
+
+                INPUT:
+
+
+		- DPT : Variable of character type (len = 20) that specifies the dipole 
+
+		       source that will assume the role of transmitter. It can assume 
+
+		       the following values:
+
+
+                      'ExDP' - For an electric dipole in the x-direction.
+                      'EyDP' - For an electric dipole in the y-direction.
+                      'EzDP' - For an electric dipole in the z-direction.
+                      'HxDP' - For a magnetic dipole in the x direction.
+                      'HyDP' - For a magnetic dipole in the y direction.
+                      'HzDP' - For a magnetic dipole in the z direction.
+                      'HCL'  - the source is a Horizontal Circular Loop.			
+
+		- DPR : variable of character type (len = 20) which indicates which dipole 
+
+			is the source of the field adjoint. That is, what field and component 
+
+                        associated with the DPT source do you want to get the sensitivity. 
+
+                        It can assume the following values:
+
+
+                      'ExDP' - For an electric dipole in the x-direction.
+                      'EyDP' - For an electric dipole in the y-direction.
+                      'EzDP' - For an electric dipole in the z-direction.
+                      'HxDP' - For a magnetic dipole in the x direction.
+                      'HyDP' - For a magnetic dipole in the y direction.
+                      'HzDP' - For a magnetic dipole in the z direction.
+
+
+
+		- TRANS1D : É uma variável do tipo inteiro que, quando é iniciada com o valor 1,
+
+ 		  você estará dizendo que os campos 1D dos Transmissores vão ser calculados
+
+		  e armazenados. Deve-se atribuir esse valor se você está executando seu programa
+
+		  pela primeira vez para um dado modelo e na primeira iteração. 
+  
+
+
+		- ADJ1D : It is an integer variable that, when it starts with a value of 1, 
+
+			  you are saying that the fields for the attached fonts will be calculated
+
+			  and stored. You should assign this value if you are running your program 
+
+			  for the first time for a given model and the first iteration. 
+ 	
+
+
+  		- NPROC : It is an integer variable that indicates the number of processes that will be 
+
+			  used to calculate the fields of the sources appended in parallel using Openmp.
+
+
+                OUTPUT:
+
+
+		- MSB : It is a double-precision matrix of the real type. It stores the sensitivity of the 
+
+			data for i-th iteration. She is of size:
+
+			MSB(2 X No of observations X No. of frequencies x No of transmitters, No. of inversion blocks )
+
+			This variable must be allocated before the routine call
+
+
+			The output is organized as follows:
+
+			n  = No. of observations X No. of frequencies x No. of transmitters
+
+			nb = Number of inversion blocks.
+
+
+			MSB(   1:n  , 1:nb) = dlog|E|/dlogP(j=1:nb)	
+
+			MSB( n+1:2n , 1:nb) = dphi(E)/dlogP(j=1:nb)
+
+
+		- X : It is a vector that stores the estimated data for the distribution of the 
+
+		      i-th estimated parameter vector and has a defined dimension of
+
+			(1: 2 x No of observations X No. of frequencies). It is a variable 
+
+		      of the actual type where the output is organized as follows:
+
+
+			n  =  No. of observations X No. of frequencies
+
+			MSB(    1:n  ) = log|E(1:n)|
+			MSB(  n+1:2n ) = phi(E) ! in redian pi
+
+
+
+
+	OBS: Starting with the modified version of the previous example,
+
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!===============================================================
+
+
+		PROGRAM seu_program
+		USE GEMM3D
+			.
+			.
+			.	
+		Declaration of variables
+			.
+			.
+			.
+
+		path_atual = '~/Desktop/GEMM3D/'
+		call  inic_entrada( path_atual )	
+
+		DPT = 'ExDP' ! original source
+		DPR = 'ExDP' ! adjoint source (in line component sensitivity)
+                TRNS1D  = 1              
+		ADJ1D   = 1
+		NPROC   = 2
+
+                P0 = background ! resistivity
+		call JACOB_DPEM3D( DPT, DPR, ADJ1D, TRNS1D, NPROC, MSB, X )
+                        .
+                        .
+                        .
+                IF( CONVERGENCE NOT ACHIEVED )THEN
+
+                       NITE   = 3
+                       TRNS1D = 0              
+                       ADJ1D  = 0
+                       do i=2,NITE
+
+                             call ATUALIZANDO_vrho_e( VP ) ! updating the resistivity vector of the elements
+
+                             call JACOB_DPEM3D( DPT, DPR, ADJ1D, TRNS1D, NPROC, MSB, X )
+
+                                        .
+                                        .
+                                        .
+
+                             IF( CONVERGENCE ACHIEVED )EXIT
+							
+                                        .
+                                        .
+                                        .
+                       end do
+
+                END IF
+			.
+			.
+			.	
+		END PROGRAM seu_program		
+
+	
+	!===============================================================
+        !888888888888888888888888888888888888888888888888888888888888888
+	!=============================================================== 
+
+!========================================================================================================
+!========================================================================================================
+
+
+	4 - FINAL CONSIDERATIONS 
+
+	
+	The ME3DFG_EFA program is robust in the sense of allowing 3D simulation 
+    
+        (with or without topography) of the main electromagnetic methods such as 
+
+        mCSEM, Magnetotelluric and CSAMT. In addition, efficient, as well as using 
+
+        a robust library, such as PARDISO, to solve in parallel the linear system that 
+
+        derives from the direct problem, also uses the efficient method of the attached 
+
+        states for Jacobian obtention. This library is intended for students and researchers 
+
+        who are not only interested in simulating the fields of the methods mentioned, but also 
+
+        validate the responses of their implementations and MAINLY for those who need an efficient 
+
+        and effective package to compute the sensitivity matrix which will compose the objective 
+
+        function in your inversion code.
+
+	
+
+!=======================================================================================================
+!888888888888888888888888888888888888888888888888888o888888888888888888888888888888888888888888888888888
+!=======================================================================================================
